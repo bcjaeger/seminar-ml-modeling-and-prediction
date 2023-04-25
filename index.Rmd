@@ -1,5 +1,5 @@
 ---
-title: "Machine Learning and Survival Analysis"
+title: "Machine Learning for Prediction and Modeling"
 author: "Byron C. Jaeger"
 date: "April 20, 2023"
 output:
@@ -26,7 +26,7 @@ knitr::opts_chunk$set(
   fig.width=12, 
   fig.height=5.5, 
   dpi=72*5,
-  cache = FALSE
+  cache = TRUE
 )
 
 library(diagram)
@@ -107,9 +107,9 @@ I'm a biostatistician and data scientist
 
 - **Machine Learning**
 
-- Evaluating Survival Predictions
+- Evaluating Predictions
 
-- Random Survival Forests
+- Trees, Forests, & Boosting
 
 - Examples
 
@@ -368,7 +368,7 @@ results_example_1[[3]]$figure_both +
 layout: false
 class: center, middle
 
-# Prediction accuracy in new data depends on both bias and variance
+# Prediction accuracy in new data $\approx$ bias $+$ variance
 
 ---
 
@@ -611,8 +611,8 @@ step5 = paste(
   sep=' \n')
 
 stepf = paste( 
-  'Based on internally validated calibration, discrimination, and Brier score estimates,',
-  'select one algorithm to develop predictive equations using the full set of derivation data.',
+  'Based on internally validated predictiona accuracy estimates, pick one',
+  'algorithm to develop a prediction model using the full derivation data.',
   sep=' \n')
 
 
@@ -823,46 +823,83 @@ textempty(
 
 - Machine Learning
 
-- **Evaluating Survival Predictions**
+- **Evaluating Predictions**
 
-- Random Survival Forests
+- Trees, Forests, & Boosting
 
 - Examples
 
 ---
 layout: true
 
-# Evaluating Survival Predictions
+# Evaluating Predictions
 
 ---
 
-What can be predicted in survival analysis:
+What you predict depends on the outcome:
 
-- Time until event
+- Continuous outcome $\Rightarrow$ continuous prediction
 
-- Probability of event occurring in next $t$ years
+- Categorical outcome $\Rightarrow$ probabilistic prediction
 
-- Expected number of events in next $t$ years
-
----
-
-- Calibration (Slope and intercept)
-
-- Discrimination (C-statistic aka AUC)
-
-- Overall goodness of fit (Brier Score aka Graf Score)
+- Survival outcome $\Rightarrow$ continuous OR probabilistic prediction
 
 ---
 
-### Brier Score
+There is a common thread for prediction evaluation: 
 
-The **Brier score** of a predicted probability $$\widehat{f}(t) \in (0, 1]$$ for an observed event $$Y(t) \in \left\{ 0, 1 \right\}$$ is $$\left( \widehat{f}(t) -  Y(t) \right)^{2}.$$
+$$\frac{1}{n}\sum_{i = 1}^n \left(\text{Prediction for person i} - \text{Observed value for person i}\right)^2 $$
+- For continuous outcomes, its called mean square error
+
+- For categorical outcomes, its called the Brier score (sometimes Graf score)
+
+- For survival outcomes, its called the integrated Brier score 
+
+---
+
+### Mean squared error, scaling, and R-squared
+
+Mean squared error needs context to be informative.
+
+- Is it better than the error of something that already exists?
+
+- Is it better than the error of something that is simple?
+
+A nice way to improve the interpretability of squared error is to scale it:
+
+$$1 - \frac{\text{your model's squared error}}{\text{reference squared error}}$$
+
+This is known as an $R^2$ statistic for prediction because it is usually between 0 and 1. 
+
+(It can be less than one if your model does worse than the reference.)
+
+---
+
+### Brier Score for binary outcomes
+
+The **Brier score** of a predicted probability $\widehat{f} \in (0, 1)$ for a binary outcome $Y \in \left\{ 0, 1 \right\}$ is $$\frac{1}{n}\sum_{i=1}^n\left( \widehat{f}_i -  Y_i \right)^{2}.$$
 
 **Examples** 
 
-- If $\widehat{f}(t) = 0.10$ and $Y=0$, the **Brier score** is $(0.10 - 0.00)^{2} = 0.01$.
+- If $\widehat{f}_i = 0.10$ and $Y_i=0$, the contribution to the **Brier score** is $(0.10 - 0.00)^{2} = 0.01$.
 
-- If $\widehat{f}(t) = 0.50$, the **Brier score** is always 0.25. Why?
+- If you predict a probability of 1/2 for everyone, the **Brier score** is always 0.25. Why?
+
+The **Brier score** can be scaled just like mean squared error:
+
+$$1 - \frac{\text{your model's Brier score}}{\text{reference Brier score}}$$
+
+---
+
+### Brier Score for survival outcomes
+
+For survival outcomes, there is a $t$ where we evaluate our model's prediction. 
+
+**Example**: 10-year risk for cardiovascular disease (i.e., $t = \text{10 years}$)
+
+For predicted probability $\widehat{f}(t) \in (0, 1]$ and observed event $Y(t) \in \left\{ 0, 1 \right\}$: $$\text{Brier score} = \frac{1}{n}\sum_{i=1}^n\left( \widehat{f}(t) -  Y(t) \right)^{2}.$$
+
+But how do we know which value of $t$ we should focus on?
 
 ---
 
@@ -1025,19 +1062,15 @@ p3 +
 
 ### Integrated Brier Score
 
-
-
 **Why?** Integrating the Brier score over a range of times summarizes overall prediction accuracy. 
-
-
 
 **How?** Computing Brier scores at all potential times for one observation, i.e.,
 
 $$\text{ibs}(T) = \frac{1}{\text{T}} \int_{0}^{T} \left(\widehat{f}(t) - Y(t) \right)^{2} dt$$
 
-For a validation sample with $N$ observations, 
+Then sum and average over $n$ observations: 
 
-$$\text{IBS}(T) = \frac{1}{N} \sum_{i=1}^N \text{ibs}_i(T)$$
+$$\text{IBS}(T) = \frac{1}{n} \sum_{i=1}^n \text{ibs}_i(T)$$
 
 
 
@@ -1045,23 +1078,22 @@ $$\text{IBS}(T) = \frac{1}{N} \sum_{i=1}^N \text{ibs}_i(T)$$
 
 ### Scaled Brier Score
 
-**Why?**
+You can scale the Brier score just like mean squared error.
 
-- IBS = 0 $\Rightarrow$ perfect model. Great! What if IBS = 0.05?
-
-- Naïve IBS is determined by the prevalence of the outcome.
-
-**How?** If the outcome is present in 10% of the population, then the naïve IBS is 
+**Example** Suppose cumulative incidence of an outcome is 10% at $t$ years, so 10% would be a good reference prediction for $t$ years. Thus, the reference Brier score is:
 
 $$(0.1) \cdot (1–0.1)^{2} + (1–0.1) \cdot (0.1)^{2} = 0.090$$ 
 
-So if our model gets an IBS of 0.05, we could scale it to be $\leq 1$ using 
+So if our model gets a Brier score of 0.05, we could scale using 
 
-$$1 - \frac{\text{IBS of our model}}{\text{IBS of naïve model}} = 1 - \frac{0.05}{0.090} = 0.444$$
+$$1 - \frac{\text{our Brier score}}{\text{reference Brier score}} = 1 - \frac{0.05}{0.090} = 0.444$$
 
-Note that this is sometimes called the **index of prediction accuracy (IPA)**
+Note that this is sometimes called the **index of prediction accuracy (IPA)** and it works just the same for integrated Brier scores
 
 ---
+layout: false
+
+# Interpreting predictions
 
 ### Partial dependence
 
@@ -1069,7 +1101,7 @@ Switching gears from prediction accuracy to interpretation.
 
 - Let $X_{\text{interest}}$ represent a predictor (or predictors) we want to investigate and $X_{\text{others}}$ all other predictors. 
 
-- To estimate how a random model's predictions change with respect to $X_{\text{interest}}$, we compute
+- To estimate how a model's predictions change with respect to $X_{\text{interest}}$, we compute
 
 $$E_{X_{\text{others}}}\left[\hat{f}(X_{\text{interest}}, X_{\text{others}})\right] \approx \frac{1}{n} \sum_{i=1}^n \hat{f}(X_{\text{interest}}, X^i_{\text{others}})$$
 
@@ -1082,9 +1114,9 @@ layout: false
 
 - Machine Learning
 
-- Evaluating Survival Predictions
+- Evaluating Predictions
 
-- **Random Survival Forests**
+- **Trees, Forests, & Boosting**
 
 - Examples
 
@@ -1269,53 +1301,100 @@ mdl_forest <- ranger::ranger(
  importance = 'permutation'
 )
 
+mdl_tree_nonrandom <- ranger::ranger(
+ formula = species ~ flipper_length_mm + bill_length_mm, 
+ data = penguins,
+ probability = TRUE,
+ num.trees = 1, 
+ max.depth = 2,
+ mtry = 2,
+ replace = FALSE,
+ sample.fraction = 1
+)
+
+mdl_tree <- ranger::ranger(
+ formula = species ~ flipper_length_mm + bill_length_mm, 
+ data = penguins,
+ probability = TRUE,
+ num.trees = 1
+)
+
 grid <- expand_grid(
  flipper_length_mm = seq(170, 235, len = 150),
  bill_length_mm = seq(30, 70, len = 150)
 )
 
+pred_one_tree <- predict(mdl_tree, data = grid) %>% 
+  getElement('predictions') %>% 
+  as_tibble()
 
-pred <- as_tibble(predict(mdl_forest, data = grid)$predictions)
+pred_nonrandom <- predict(mdl_tree_nonrandom, data = grid) %>% 
+  getElement('predictions') %>% 
+  as_tibble()
 
-grid <- bind_cols(grid, pred) %>% 
- pivot_longer(cols = c(Adelie,
-                       Chinstrap,
-                       Gentoo)) %>% 
- group_by(flipper_length_mm, bill_length_mm) %>% 
- arrange(desc(value)) %>% 
- slice(1)
+pred_forest <- predict(mdl_forest, data = grid) %>% 
+  getElement('predictions') %>% 
+  as_tibble() 
+
+grid_plots <- list(
+  forest = pred_forest,
+  tree = pred_one_tree,
+  tree_nonrandom = pred_nonrandom
+) %>% 
+  map(
+    ~ bind_cols(grid, .x) %>% 
+      pivot_longer(cols = c(Adelie,
+                            Chinstrap,
+                            Gentoo)) %>% 
+      group_by(flipper_length_mm, bill_length_mm) %>% 
+      arrange(desc(value)) %>% 
+      slice(1)
+  )
+
+plots <- map(
+  grid_plots, 
+  ~ ggplot(.x) +
+    aes(flipper_length_mm, bill_length_mm) + 
+    geom_point(size = 0.5, alpha = 0.2, shape=0, aes(color = name)) +
+    geom_point(data = penguins,
+               aes(color = species, shape = species),
+               size = 3,
+               alpha = 0.8) + 
+    scale_color_manual(values = c("darkorange","purple","cyan4")) +
+    scale_fill_manual(values = c("darkorange","purple","cyan4")) +
+    labs(x = "\nFlipper length, mm",
+         y = "Bill length, mm\n",
+         color = "Penguin species",
+         shape = "Penguin species") +
+    coord_cartesian(ylim = c(30, 70),
+                    xlim = c(170, 235)) +
+    theme_minimal() +
+    scale_x_continuous(expand = c(0,0)) +
+    scale_y_continuous(expand = c(0,0)) +
+    theme(panel.grid = element_blank(),
+          panel.border = element_rect(fill = NA),
+          legend.position = '')
+)
 
 ```
 
-
 ---
 
-Contours of predictions from **individual trees** in a random forest
+Contours of predictions from a non-random, **individual tree**
 
 ```{r fig.align='center', fig.height=5, fig.width=7}
 
-ggplot(grid, aes(flipper_length_mm, bill_length_mm)) +
- geom_point(data = penguins,
-            aes(color = species, shape = species),
-            size = 3,
-            alpha = 0.8) + 
- geom_contour_filled(aes(z = value, fill = name),
-                     alpha = .25, color = 'black') +
- scale_color_manual(values = c("darkorange","purple","cyan4")) +
- scale_fill_manual(values = c("darkorange","purple","cyan4")) +
- labs(x = "\nFlipper length, mm",
-      y = "Bill length, mm\n",
-      color = "Penguin species",
-      shape = "Penguin species") +
- coord_cartesian(ylim = c(30, 70),
-                 xlim = c(170, 235)) +
- theme_minimal() +
- scale_x_continuous(expand = c(0,0)) +
- scale_y_continuous(expand = c(0,0)) +
- theme(panel.grid = element_blank(),
-       panel.border = element_rect(fill = NA),
-       legend.position = '')
+plots$tree_nonrandom
 
+```
+
+---
+
+Contours of predictions from individual tree **in a random forest**
+
+```{r fig.align='center', fig.height=5, fig.width=7}
+
+plots$tree
 
 ```
 
@@ -1325,28 +1404,7 @@ The **ensemble** decision boundary from a random forest
 
 ```{r fig.align='center', fig.height=5, fig.width=7}
 
-fig_ensemble <- ggplot(grid, aes(flipper_length_mm, bill_length_mm)) +
- geom_point(data = penguins,
-            aes(color = species, shape = species),
-            size = 3,
-            alpha = 0.8) + 
- geom_contour_filled(aes(z = value, fill = name), alpha = .25) +
- scale_color_manual(values = c("darkorange","purple","cyan4")) +
- scale_fill_manual(values = c("darkorange","purple","cyan4")) +
- labs(x = "\nFlipper length, mm",
-      y = "Bill length, mm\n",
-      color = "Penguin species",
-      shape = "Penguin species") +
- coord_cartesian(ylim = c(30, 70),
-                 xlim = c(170, 235)) +
- theme_minimal() +
- scale_x_continuous(expand = c(0,0)) +
- scale_y_continuous(expand = c(0,0)) +
- theme(panel.grid = element_blank(),
-       panel.border = element_rect(fill = NA),
-       legend.position = '')
-
-fig_ensemble
+plots$forest
 
 ```
 
@@ -1369,7 +1427,7 @@ knitr::include_graphics("img/axis_versus_oblique.png")
 ## Oblique random survival forest
 
 ```{r}
-knitr::include_url("https://docs.ropensci.org/aorsf/")
+# knitr::include_url("https://docs.ropensci.org/aorsf/")
 ```
 
 ---
@@ -1549,6 +1607,132 @@ plot_ly(penguins_scaled,
  ) %>% 
  print_plotly()
 
+```
+
+
+---
+layout: true
+
+## Boosting
+
+---
+
+Boosting has dependency in its ensemble by design.
+
+Basic idea:
+
+1. Start by fitting a weak learner to the training data (tree 1)
+
+1. Measure the learner's error
+
+1. Fit a weak learner to the previous learner's error (tree i)
+
+1. Add the current tree's prediction to the ensemble
+
+1. if i = max trees, stop. Otherwise go back to step 2
+
+you can code this yourself!
+
+```{r, echo=TRUE}
+
+# setting up for boosting example
+
+library(party)
+library(table.glue)
+library(tidyverse)
+library(gganimate)
+
+```
+
+
+---
+
+First simulate a dataset to model
+
+```{r, echo=TRUE}
+
+# set the number of observations to use for the example data
+nobs <- 1000
+# create x, the predictor variable
+x <- seq(0,1, length.out=nobs)
+# create y, which has a non-linear relationship (sin function) with x
+y <- sin(2*pi*x) + rnorm(nobs, mean = 0, sd = 1/5)
+
+head(cbind(y=y, x=x))
+
+```
+
+---
+
+Next initialize your learning parameters
+
+```{r, echo=TRUE}
+
+# Initialize predictions as the mean value of y
+preds <- mean(y)
+
+# set decision trees to be 'stumps', i.e., a max depth of 1
+ctrl = ctree_control(maxdepth = 1, mincriterion = 0)
+
+# set learning rate
+eta = 1/5
+
+# initialize the list of trees, error values, and data for plotting
+trees <- rmse <- ggdata <- vector(mode='list', length = 100)
+
+```
+
+
+---
+
+Big loop!
+
+```{r, echo=TRUE}
+
+for(t in seq_along(trees)){
+  
+  df = tibble(x = x, y = y, residuals = y - preds)
+  
+  trees[[t]] <- party::ctree(residuals ~ x, 
+                             data = df, 
+                             controls = ctrl)
+  
+  preds <- preds + 
+    as.numeric(predict(trees[[t]], newdata = df)) * eta
+  
+  ggdata[[t]] <- tibble(x=x, y=y, preds=preds)
+  
+  rmse[[t]] <- sqrt(mean((preds-y)^2))
+  
+}
+
+
+```
+
+
+---
+
+What this code looks like as it runs
+
+```{r}
+# Creates animation showing a boosting model's prediction
+
+gg <- ggdata %>%
+  bind_rows(.id = 'step') %>%
+  mutate(step = as.numeric(step)) %>%
+  ggplot() +
+  geom_point(aes(x = x, y = y)) +
+  geom_line(aes(x = x, y = preds), size = 2, col = 'red') +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        text = element_text(size = 18)) +
+  labs(x = 'Predictor variable',
+       y = 'Outcome variable',
+       title = 'Predictions from ensemble of {frame_time} trees') +
+  transition_time(step) +
+  ease_aes('linear')
+
+gg
 ```
 
 
