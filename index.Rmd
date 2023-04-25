@@ -1427,7 +1427,7 @@ knitr::include_graphics("img/axis_versus_oblique.png")
 ## Oblique random survival forest
 
 ```{r}
-# knitr::include_url("https://docs.ropensci.org/aorsf/")
+knitr::include_url("https://docs.ropensci.org/aorsf/")
 ```
 
 ---
@@ -1621,23 +1621,23 @@ Boosting has dependency in its ensemble by design.
 
 Basic idea:
 
-1. Start by fitting a weak learner to the training data (tree 1)
+1. Start with a simple prediction (learner 1)
 
-1. Measure the learner's error
+1. Measure your error (residuals)
 
-1. Fit a weak learner to the previous learner's error (tree i)
+1. Fit a weak learner to the previous learner's error (learner i)
 
-1. Add the current tree's prediction to the ensemble
+1. Add the current learner's prediction to your current prediction
 
-1. if i = max trees, stop. Otherwise go back to step 2
+1. if i = max boosting steps, **stop**. Otherwise go back to step 2
 
-you can code this yourself!
+That's it! We can code this loop in 5 commands.
 
 ```{r, echo=TRUE}
 
 # setting up for boosting example
-
 library(party)
+library(splines)
 library(table.glue)
 library(tidyverse)
 library(gganimate)
@@ -1733,6 +1733,58 @@ gg <- ggdata %>%
   ease_aes('linear')
 
 gg
+```
+
+---
+
+You don't have to use trees
+
+```{r, echo=TRUE}
+# Initialize predictions as the mean value of y
+preds <- mean(y)
+
+# initialize the list of learners, error values, and data for plotting
+learners <- rmse <- ggdata <- vector(mode='list', length = 100)
+
+for(t in seq_along(learners)){
+  
+  df = tibble(x = x, y = y, residuals = y - preds)
+  
+  learners[[t]] <- lm(residuals ~ bs(x), data = df) #<<
+  
+  preds <- preds + 
+    as.numeric(predict(learners[[t]], newdata = df)) * eta
+  
+  ggdata[[t]] <- tibble(x=x, y=y, preds=preds)
+  
+  rmse[[t]] <- sqrt(mean((preds-y)^2))
+  
+}
+```
+
+---
+
+Splines turn out to be a better weak learner than trees (in this case)
+
+```{r}
+
+gg <- ggdata %>%
+  bind_rows(.id = 'step') %>%
+  mutate(step = as.numeric(step)) %>%
+  ggplot() +
+  geom_point(aes(x = x, y = y)) +
+  geom_line(aes(x = x, y = preds), size = 2, col = 'red') +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        text = element_text(size = 18)) +
+  labs(x = 'Predictor variable',
+       y = 'Outcome variable',
+       title = 'Predictions from ensemble of {frame_time} trees') +
+  transition_time(step) +
+  ease_aes('linear')
+
+gg
+
 ```
 
 

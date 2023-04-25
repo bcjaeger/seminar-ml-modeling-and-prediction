@@ -631,7 +631,7 @@ Oblique trees use linear combinations of variables to partition data.
 
 ## Oblique random survival forest
 
-
+&lt;iframe src="https://docs.ropensci.org/aorsf/" width="100%" height="400px" data-external="1"&gt;&lt;/iframe&gt;
 
 ---
 
@@ -659,23 +659,23 @@ Boosting has dependency in its ensemble by design.
 
 Basic idea:
 
-1. Start by fitting a weak learner to the training data (tree 1)
+1. Start with a simple prediction (learner 1)
 
-1. Measure the learner's error
+1. Measure your error (residuals)
 
-1. Fit a weak learner to the previous learner's error (tree i)
+1. Fit a weak learner to the previous learner's error (learner i)
 
-1. Add the current tree's prediction to the ensemble
+1. Add the current learner's prediction to your current prediction
 
-1. if i = max trees, stop. Otherwise go back to step 2
+1. if i = max boosting steps, **stop**. Otherwise go back to step 2
 
-you can code this yourself!
+That's it! We can code this loop in 5 commands.
 
 
 ```r
 # setting up for boosting example
-
 library(party)
+library(splines)
 library(table.glue)
 library(tidyverse)
 library(gganimate)
@@ -758,6 +758,40 @@ for(t in seq_along(trees)){
 What this code looks like as it runs
 
 ![](index_files/figure-html/unnamed-chunk-58-1.gif)&lt;!-- --&gt;
+
+---
+
+You don't have to use trees
+
+
+```r
+# Initialize predictions as the mean value of y
+preds &lt;- mean(y)
+
+# initialize the list of learners, error values, and data for plotting
+learners &lt;- rmse &lt;- ggdata &lt;- vector(mode='list', length = 100)
+
+for(t in seq_along(learners)){
+  
+  df = tibble(x = x, y = y, residuals = y - preds)
+  
+* learners[[t]] &lt;- lm(residuals ~ bs(x), data = df)
+  
+  preds &lt;- preds + 
+    as.numeric(predict(learners[[t]], newdata = df)) * eta
+  
+  ggdata[[t]] &lt;- tibble(x=x, y=y, preds=preds)
+  
+  rmse[[t]] &lt;- sqrt(mean((preds-y)^2))
+  
+}
+```
+
+---
+
+Splines turn out to be a better weak learner than trees (in this case)
+
+![](index_files/figure-html/unnamed-chunk-60-1.gif)&lt;!-- --&gt;
 
 
 ---
@@ -932,7 +966,7 @@ pd_plot &lt;- ggplot(pd_bili_sex) +
 
 ---
 
-![](index_files/figure-html/unnamed-chunk-67-1.png)&lt;!-- --&gt;
+![](index_files/figure-html/unnamed-chunk-69-1.png)&lt;!-- --&gt;
 
 
 ---
@@ -962,7 +996,7 @@ pbc$edema_01 &lt;- ifelse(pbc$edema == '1', 'yes', 'no')
 
 A view of what you may find:
 
-![](index_files/figure-html/unnamed-chunk-69-1.png)&lt;!-- --&gt;
+![](index_files/figure-html/unnamed-chunk-71-1.png)&lt;!-- --&gt;
 
 ---
 
@@ -980,7 +1014,7 @@ ggplot(pd_tv, aes(x = pred_horizon, y = mean, color = sex)) +
  labs(x = 'Time since baseline', y = 'Expected risk')
 ```
 
-![](index_files/figure-html/unnamed-chunk-70-1.png)&lt;!-- --&gt;
+![](index_files/figure-html/unnamed-chunk-72-1.png)&lt;!-- --&gt;
 
 
 ---
@@ -1121,7 +1155,7 @@ bm_scores %&gt;%
   geom_boxplot()
 ```
 
-![](index_files/figure-html/unnamed-chunk-77-1.png)&lt;!-- --&gt;
+![](index_files/figure-html/unnamed-chunk-79-1.png)&lt;!-- --&gt;
 
 ---
 
